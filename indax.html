@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MOHAB STORE — نظام الإدارة</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#738096;--line:#e6eaf0;--primary:#6c5ce7;--primary2:#5144c8;--green:#12a36d;--red:#e34d59;--orange:#f59e0b;--shadow:0 10px 30px rgba(25,35,60,.07)}
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
+.app{min-height:100vh}.topbar{height:68px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:20}.brand{display:flex;gap:10px;align-items:center;font-weight:900;font-size:20px}.brand-badge{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,var(--primary),#9a8cff);display:grid;place-items:center;color:#fff}.userbox{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.userbox img{width:34px;height:34px;border-radius:50%}.logout{background:#f3f4f7;color:#394256;border-radius:10px;padding:8px 12px}
+.layout{display:flex;min-height:calc(100vh - 68px)}.side{width:240px;background:var(--card);border-left:1px solid var(--line);padding:18px 12px;position:sticky;top:68px;height:calc(100vh - 68px)}.nav{display:grid;gap:6px}.nav button{background:transparent;text-align:right;padding:13px 14px;border-radius:12px;color:#5e6a7e;font-weight:700}.nav button:hover,.nav button.active{background:#eeeafe;color:var(--primary2)}.main{flex:1;padding:24px;min-width:0}.page{display:none}.page.active{display:block}.title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.title h1{margin:0;font-size:25px}.subtitle{color:var(--muted);font-size:13px;margin-top:5px}.primary{background:var(--primary);color:#fff;border-radius:11px;padding:11px 15px;font-weight:800}.secondary{background:#eef0f5;color:#364154;border-radius:11px;padding:10px 14px;font-weight:700}.danger{background:#fff0f1;color:var(--red);border-radius:10px;padding:8px 10px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:var(--shadow)}.stat-top{display:flex;justify-content:space-between;align-items:center}.icon{width:42px;height:42px;border-radius:12px;background:#eeeafe;display:grid;place-items:center;color:var(--primary2);font-weight:900}.stat small{color:var(--muted)}.stat b{font-size:22px;display:block;margin-top:10px}.green{color:var(--green)}.red{color:var(--red)}.orange{color:var(--orange)}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}.card h3{margin:0 0 15px}.chartbox{height:300px}.tablewrap{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:right;font-size:13px;white-space:nowrap}th{background:#fafbfc;color:#647086;font-size:12px}tr:last-child td{border-bottom:0}.badge{padding:5px 9px;border-radius:20px;font-size:11px;font-weight:800;display:inline-block}.paid{background:#e9f8f2;color:var(--green)}.unpaid{background:#fff4df;color:#b86c00}.loss{background:#fff0f1;color:var(--red)}.profit{background:#e9f8f2;color:var(--green)}
+.filters{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:13px}.field{display:grid;gap:6px}.field label{font-size:12px;color:#667187;font-weight:700}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 11px;outline:0}.field textarea{min-height:80px;resize:vertical}.actions{display:flex;gap:7px;align-items:center}.empty{text-align:center;padding:40px;color:var(--muted)}.modal{position:fixed;inset:0;background:rgba(10,15,25,.45);display:none;align-items:center;justify-content:center;padding:15px;z-index:50}.modal.show{display:flex}.modalbox{background:#fff;width:min(720px,100%);max-height:92vh;overflow:auto;border-radius:18px;padding:20px}.modalhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.close{background:#f1f2f5;border-radius:9px;padding:7px 10px}.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.full{grid-column:1/-1}.modalfoot{display:flex;justify-content:flex-start;gap:8px;margin-top:17px}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 20% 20%,#ded9ff,transparent 35%),var(--bg)}.loginbox{width:min(430px,100%);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:22px;padding:30px;text-align:center}.loginbox .brand{justify-content:center;font-size:25px;margin-bottom:8px}.google{width:100%;padding:13px;border:1px solid #dfe3ea;background:#fff;border-radius:12px;font-weight:800;color:#283247}.notice{font-size:12px;color:var(--muted);line-height:1.8;margin:17px 0}.toast{position:fixed;left:18px;bottom:18px;background:#172033;color:#fff;padding:12px 15px;border-radius:12px;display:none;z-index:100;box-shadow:var(--shadow)}.toast.show{display:block}.mobileNav{display:none}.search{position:relative}.search input{padding-right:38px}
+@media(max-width:1000px){.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.filters{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.topbar{height:60px;padding:0 13px}.side{display:none}.layout{min-height:calc(100vh - 60px)}.main{padding:15px 12px 82px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:13px}.stat b{font-size:17px}.stat small{font-size:10px}.icon{width:35px;height:35px;border-radius:10px}.title h1{font-size:20px}.title{margin-bottom:15px}.mobileNav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;right:0;left:0;background:#fff;border-top:1px solid var(--line);z-index:30;padding:7px 5px}.mobileNav button{background:transparent;color:#687489;font-size:10px;padding:5px}.mobileNav button.active{color:var(--primary2);font-weight:900}.mobileNav span{display:block;font-size:17px;margin-bottom:2px}.userbox span{display:none}.filters{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.chartbox{height:240px}.topbar .brand{font-size:16px}.topbar .brand-badge{width:34px;height:34px}.logout{padding:7px 9px}}
+</style>
+</head>
+<body>
+<div id="loginView" class="login">
+  <div class="loginbox">
+    <div class="brand"><div class="brand-badge">M</div>MOHAB STORE</div>
+    <div class="subtitle">نظام إدارة متجر الشحن</div>
+    <div class="notice">الدخول متاح للحساب المصرح به فقط.<br>يتم التحقق من البريد من خلال Firebase Authentication وقواعد قاعدة البيانات.</div>
+    <button id="googleBtn" class="google">تسجيل الدخول باستخدام Google</button>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+<header class="topbar">
+  <div class="brand"><div class="brand-badge">M</div>MOHAB STORE</div>
+  <div class="userbox"><span id="userEmail"></span><img id="userPhoto" src="" alt=""><button class="logout" id="logoutBtn">خروج</button></div>
+</header>
+<div class="layout">
+<aside class="side">
+<nav class="nav">
+<button data-page="dashboard" class="active">لوحة التحكم</button>
+<button data-page="transactions">الشحنات والعمليات</button>
+<button data-page="customers">العملاء</button>
+<button data-page="debts">الديون</button>
+<button data-page="expenses">المصروفات</button>
+<button data-page="reports">التقارير والإحصائيات</button>
+</nav>
+</aside>
+<main class="main">
+<section id="dashboard" class="page active">
+<div class="title"><div><h1>لوحة التحكم</h1><div class="subtitle">نظرة سريعة على أداء MOHAB STORE</div></div><button class="primary" onclick="openTransaction()">+ إضافة شحنة</button></div>
+<div class="stats">
+<div class="stat"><div class="stat-top"><small>إجمالي المبيعات</small><div class="icon">₤</div></div><b id="sSales">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>إجمالي التكلفة</small><div class="icon">↘</div></div><b id="sCost">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>إجمالي الأرباح</small><div class="icon">↗</div></div><b id="sProfit" class="green">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>إجمالي الخسائر</small><div class="icon">!</div></div><b id="sLoss" class="red">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>المصروفات</small><div class="icon">−</div></div><b id="sExpenses">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>صافي الربح</small><div class="icon">✓</div></div><b id="sNet" class="green">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>لي عند العملاء</small><div class="icon">د</div></div><b id="sReceivable" class="orange">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>عليّ للآخرين</small><div class="icon">د</div></div><b id="sPayable" class="red">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>صافي الديون</small><div class="icon">Σ</div></div><b id="sDebtNet">0 ج</b></div>
+<div class="stat"><div class="stat-top"><small>عدد عمليات الشحن</small><div class="icon">#</div></div><b id="sCount">0</b></div>
+<div class="stat"><div class="stat-top"><small>المكتملة</small><div class="icon">✓</div></div><b id="sCompleted">0</b></div>
+<div class="stat"><div class="stat-top"><small>غير المسددة</small><div class="icon">!</div></div><b id="sUnpaid">0</b></div>
+</div>
+<div class="grid2">
+<div class="card"><h3>المبيعات والأرباح — آخر 7 أيام</h3><div class="chartbox"><canvas id="salesChart"></canvas></div></div>
+<div class="card"><h3>آخر العمليات</h3><div id="latest"></div></div>
+</div>
+</section>
+
+<section id="transactions" class="page">
+<div class="title"><div><h1>الشحنات والعمليات</h1><div class="subtitle">إدارة كل عمليات الشحن والبيع</div></div><button class="primary" onclick="openTransaction()">+ إضافة شحنة</button></div>
+<div class="card">
+<div class="filters">
+<div class="field"><label>بحث</label><input id="txSearch" placeholder="عميل، رقم، لعبة..." oninput="renderTransactions()"></div>
+<div class="field"><label>من تاريخ</label><input id="txFrom" type="date" onchange="renderTransactions()"></div>
+<div class="field"><label>إلى تاريخ</label><input id="txTo" type="date" onchange="renderTransactions()"></div>
+<div class="field"><label>حالة الدفع</label><select id="txStatus" onchange="renderTransactions()"><option value="">الكل</option><option>مدفوع</option><option>غير مدفوع</option><option>جزئي</option></select></div>
+<div class="field"><label>النتيجة</label><select id="txResult" onchange="renderTransactions()"><option value="">الكل</option><option value="profit">ربح</option><option value="loss">خسارة</option></select></div>
+</div></div>
+<div class="tablewrap" style="margin-top:14px"><table><thead><tr><th>العملية</th><th>العميل</th><th>الهاتف</th><th>الخدمة</th><th>التكلفة</th><th>البيع</th><th>النتيجة</th><th>الدفع</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody id="txBody"></tbody></table></div>
+</section>
+
+<section id="customers" class="page">
+<div class="title"><div><h1>العملاء</h1><div class="subtitle">بيانات العملاء مجمعة تلقائيًا من العمليات</div></div></div>
+<div class="tablewrap"><table><thead><tr><th>العميل</th><th>الهاتف</th><th>العمليات</th><th>إجمالي المشتريات</th><th>الأرباح</th><th>الدين المستحق</th><th>آخر عملية</th><th>واتساب</th><th>التفاصيل</th></tr></thead><tbody id="customersBody"></tbody></table></div>
+</section>
+
+<section id="debts" class="page">
+<div class="title"><div><h1>الديون</h1><div class="subtitle">متابعة المبالغ المستحقة لك وعليك</div></div><button class="primary" onclick="openDebt()">+ إضافة دين</button></div>
+<div class="stats" style="margin-bottom:15px"><div class="stat"><small>لي عند العملاء</small><b id="dRec" class="orange">0 ج</b></div><div class="stat"><small>عليّ للآخرين</small><b id="dPay" class="red">0 ج</b></div><div class="stat"><small>الصافي</small><b id="dNet">0 ج</b></div><div class="stat"><small>المتبقي الكلي</small><b id="dTotal">0 ج</b></div></div>
+<div class="tablewrap"><table><thead><tr><th>الشخص</th><th>النوع</th><th>الهاتف</th><th>المبلغ الأصلي</th><th>المدفوع</th><th>المتبقي</th><th>السبب</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th></tr></thead><tbody id="debtsBody"></tbody></table></div>
+</section>
+
+<section id="expenses" class="page">
+<div class="title"><div><h1>المصروفات</h1><div class="subtitle">تسجيل مصروفات وتشغيل المتجر</div></div><button class="primary" onclick="openExpense()">+ إضافة مصروف</button></div>
+<div class="card" style="margin-bottom:14px"><div class="stat-top"><span>إجمالي المصروفات</span><b id="eTotal">0 ج</b></div></div>
+<div class="tablewrap"><table><thead><tr><th>المصروف</th><th>المبلغ</th><th>التصنيف</th><th>التاريخ</th><th>ملاحظات</th><th>الإجراءات</th></tr></thead><tbody id="expensesBody"></tbody></table></div>
+</section>
+
+<section id="reports" class="page">
+<div class="title"><div><h1>التقارير والإحصائيات</h1><div class="subtitle">اختر فترة زمنية للحصول على تقرير دقيق</div></div><button class="secondary" onclick="exportExcel()">تصدير Excel</button></div>
+<div class="card">
+<div class="filters" style="grid-template-columns:1fr 1fr auto">
+<div class="field"><label>من</label><input id="repFrom" type="date"></div><div class="field"><label>إلى</label><input id="repTo" type="date"></div><button class="primary" onclick="renderReport()">عرض التقرير</button>
+</div>
+<div class="stats" id="reportStats"></div>
+</div>
+<div class="grid2">
+<div class="card"><h3>الأرباح حسب الأيام</h3><div class="chartbox"><canvas id="reportChart"></canvas></div></div>
+<div class="card"><h3>أفضل الخدمات</h3><div id="topServices"></div></div>
+</div>
+</section>
+</main>
+</div>
+<nav class="mobileNav">
+<button data-page="dashboard" class="active"><span>⌂</span>الرئيسية</button>
+<button data-page="transactions"><span>↗</span>الشحنات</button>
+<button data-page="customers"><span>♙</span>العملاء</button>
+<button data-page="debts"><span>د</span>الديون</button>
+<button data-page="expenses"><span>−</span>المصروفات</button>
+</nav>
+</div>
+
+<div id="modal" class="modal"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle">إضافة</h3><button class="close" onclick="closeModal()">×</button></div><div id="modalContent"></div></div></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyB_6lo6T1dPNMAI-_d9gYfQ0ER8nPYtzxA",authDomain:"buy-and-sell-at-mahab-store.firebaseapp.com",databaseURL:"https://buy-and-sell-at-mahab-store-default-rtdb.firebaseio.com",projectId:"buy-and-sell-at-mahab-store",storageBucket:"buy-and-sell-at-mahab-store.firebasestorage.app",messagingSenderId:"150928118380",appId:"1:150928118380:web:c96db14cb8c2160eac7e49",measurementId:"G-N6T6G5XQKT"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(),db=firebase.database();
+const ALLOWED_EMAIL="mohabtop1p@gmail.com";
+let user=null, data={transactions:{},debts:{},expenses:{}}, salesChart,reportChart;
+
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toLocaleString("ar-EG",{maximumFractionDigits:2})+" ج";
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const vals=o=>Object.entries(o||{}).map(([id,v])=>({...v,id}));
+function toast(msg){$("toast").textContent=msg;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
+function today(){return new Date().toISOString().slice(0,10)}
+function formatDate(ts){if(!ts)return "—";return new Date(ts).toLocaleString("ar-EG",{dateStyle:"short",timeStyle:"short"})}
+function normalizePhone(x){let s=String(x||"").replace(/[^\d+]/g,"");if(s.startsWith("+20"))return s.slice(1);if(s.startsWith("20"))return s;if(s.startsWith("0"))return "20"+s.slice(1);return s}
+function wa(x){const n=normalizePhone(x);return n?`https://wa.me/${n}`:"#"}
+function emptyRow(cols,msg="لا توجد بيانات"){return `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`}
+
+function nav(page){
+ document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+ $(page).classList.add("active");
+ document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+ if(page==="dashboard")renderDashboard();
+ if(page==="transactions")renderTransactions();
+ if(page==="customers")renderCustomers();
+ if(page==="debts")renderDebts();
+ if(page==="expenses")renderExpenses();
+ if(page==="reports")renderReport();
+}
+document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>nav(b.dataset.page));
+
+function openModal(title,html){$("modalTitle").textContent=title;$("modalContent").innerHTML=html;$("modal").classList.add("show")}
+function closeModal(){$("modal").classList.remove("show")}
+$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()})
+
+function openTransaction(id=""){
+ const t=id?data.transactions[id]:{};
+ openModal(id?"تعديل الشحنة":"إضافة شحنة",`
+ <form id="txForm"><input type="hidden" id="txId" value="${esc(id)}">
+ <div class="formgrid">
+ <div class="field"><label>اسم العميل *</label><input id="customer" required value="${esc(t.customer)}"></div>
+ <div class="field"><label>رقم العميل</label><input id="phone" inputmode="tel" value="${esc(t.phone)}"></div>
+ <div class="field"><label>اللعبة / التطبيق *</label><input id="service" required value="${esc(t.service)}"></div>
+ <div class="field"><label>نوع الشحنة / الخدمة</label><input id="type" value="${esc(t.type)}"></div>
+ <div class="field"><label>التكلفة عليّ *</label><input id="cost" required type="number" min="0" step="0.01" value="${t.cost??""}"></div>
+ <div class="field"><label>سعر البيع *</label><input id="sale" required type="number" min="0" step="0.01" value="${t.sale??""}"></div>
+ <div class="field"><label>طريقة الدفع</label><select id="method"><option>كاش</option><option>تحويل بنكي</option><option>محفظة</option><option>بطاقة</option><option>أخرى</option></select></div>
+ <div class="field"><label>حالة الدفع</label><select id="payment"><option>مدفوع</option><option>غير مدفوع</option><option>جزئي</option></select></div>
+ <div class="field full"><label>ملاحظات</label><textarea id="notes">${esc(t.notes)}</textarea></div>
+ </div>
+ <div class="modalfoot"><button class="primary" type="submit">حفظ الشحنة</button><button class="secondary" type="button" onclick="closeModal()">إلغاء</button></div></form>`);
+ if(t.method)$("method").value=t.method;if(t.payment)$("payment").value=t.payment;
+ $("txForm").onsubmit=saveTransaction;
+}
+async function saveTransaction(e){
+ e.preventDefault();
+ const id=$("txId").value||db.ref("transactions").push().key;
+ const cost=Number($("cost").value),sale=Number($("sale").value);
+ const obj={customer:$("customer").value.trim(),phone:$("phone").value.trim(),service:$("service").value.trim(),type:$("type").value.trim(),cost,sale,profit:sale-cost,method:$("method").value,payment:$("payment").value,notes:$("notes").value.trim(),createdAt:data.transactions[id]?.createdAt||Date.now(),updatedAt:Date.now()};
+ await db.ref("transactions/"+id).set(obj);closeModal();toast("تم حفظ الشحنة بنجاح");
+}
+
+function renderTransactions(){
+ let arr=vals(data.transactions).sort((a,b)=>b.createdAt-a.createdAt);
+ const q=($("txSearch")?.value||"").trim().toLowerCase(),from=$("txFrom")?.value,to=$("txTo")?.value,status=$("txStatus")?.value,result=$("txResult")?.value;
+ arr=arr.filter(t=>{
+  const day=new Date(t.createdAt||0).toISOString().slice(0,10);
+  return (!q||[t.customer,t.phone,t.service,t.type,t.id].join(" ").toLowerCase().includes(q))&&(!from||day>=from)&&(!to||day<=to)&&(!status||t.payment===status)&&(!result||(result==="profit"?Number(t.profit)>=0:Number(t.profit)<0));
+ });
+ $("txBody").innerHTML=arr.length?arr.map(t=>`<tr><td>#${esc(t.id.slice(-6))}</td><td>${esc(t.customer)}</td><td>${esc(t.phone)} ${t.phone?`<a href="${wa(t.phone)}" target="_blank" title="WhatsApp">◉</a>`:""}</td><td>${esc(t.service)}${t.type?`<small> — ${esc(t.type)}</small>`:""}</td><td>${money(t.cost)}</td><td>${money(t.sale)}</td><td><span class="badge ${t.profit>=0?"profit":"loss"}">${t.profit>=0?"+":""}${money(t.profit)}</span></td><td><span class="badge ${t.payment==="مدفوع"?"paid":"unpaid"}">${esc(t.payment)}</span></td><td>${formatDate(t.createdAt)}</td><td><div class="actions"><button class="secondary" onclick="openTransaction('${t.id}')">تعديل</button><button class="danger" onclick="deleteTransaction('${t.id}')">حذف</button></div></td></tr>`).join(""):emptyRow(10);
+}
+async function deleteTransaction(id){if(!confirm("هل أنت متأكد من حذف هذه العملية؟ سيتم تحديث الإحصائيات تلقائيًا."))return;await db.ref("transactions/"+id).remove();toast("تم حذف العملية")}
+
+function calc(){
+ const tx=vals(data.transactions), ds=vals(data.debts), ex=vals(data.expenses);
+ let sales=0,cost=0,profit=0,loss=0,unpaid=0;
+ tx.forEach(t=>{sales+=Number(t.sale);cost+=Number(t.cost);const p=Number(t.profit??Number(t.sale)-Number(t.cost));if(p>=0)profit+=p;else loss+=Math.abs(p);if(t.payment!=="مدفوع")unpaid++});
+ let rec=0,pay=0;ds.forEach(d=>{const rem=Math.max(0,Number(d.amount)-Number(d.paid));if(d.kind==="receivable")rec+=rem;else pay+=rem});
+ const expenses=ex.reduce((s,e)=>s+Number(e.amount),0);
+ return {sales,cost,profit,loss,expenses,net:profit-loss-expenses,rec,pay,debtNet:rec-pay,count:tx.length,completed:tx.filter(t=>t.payment==="مدفوع").length,unpaid};
+}
+function renderDashboard(){
+ const c=calc();["sales","cost","profit","loss","expenses","net","receivable","payable","debtNet","count","completed","unpaid"].forEach(k=>{const el=$("s"+k.charAt(0).toUpperCase()+k.slice(1));if(el)el.textContent=k==="count"||k==="completed"||k==="unpaid"?c[k]:money(c[k])});
+ const arr=vals(data.transactions).sort((a,b)=>b.createdAt-a.createdAt).slice(0,7);
+ $("latest").innerHTML=arr.length?arr.map(t=>`<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.customer)}</b><div class="subtitle">${esc(t.service)} • ${formatDate(t.createdAt)}</div></div><b class="${t.profit>=0?"green":"red"}">${t.profit>=0?"+":""}${money(t.profit)}</b></div>`).join(""):`<div class="empty">لا توجد عمليات بعد</div>`;
+ const days=[],labels=[];for(let i=6;i>=0;i--){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);const key=d.toISOString().slice(0,10);labels.push(d.toLocaleDateString("ar-EG",{weekday:"short"}));days.push(key)}
+ const sales=days.map(day=>arrForDay(day).sales), profits=days.map(day=>arrForDay(day).net);
+ if(salesChart)salesChart.destroy();salesChart=new Chart($("salesChart"),{type:"line",data:{labels,datasets:[{label:"المبيعات",data:sales,tension:.35},{label:"الربح",data:profits,tension:.35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}}}});
+}
+function arrForDay(day){let sales=0,net=0;vals(data.transactions).forEach(t=>{if(new Date(t.createdAt).toISOString().slice(0,10)===day){sales+=Number(t.sale);net+=Number(t.profit)}});return{sales,net}}
+
+function openDebt(id=""){
+ const d=id?data.debts[id]:{};
+ openModal(id?"تعديل الدين":"إضافة دين",`<form id="debtForm"><input type="hidden" id="debtId" value="${esc(id)}"><div class="formgrid">
+ <div class="field"><label>اسم الشخص *</label><input id="dname" required value="${esc(d.name)}"></div>
+ <div class="field"><label>رقم الهاتف</label><input id="dphone" inputmode="tel" value="${esc(d.phone)}"></div>
+ <div class="field"><label>نوع الدين *</label><select id="kind"><option value="receivable">لي عند العميل</option><option value="payable">عليّ للآخرين</option></select></div>
+ <div class="field"><label>المبلغ الأصلي *</label><input id="amount" type="number" min="0" step=".01" required value="${d.amount??""}"></div>
+ <div class="field"><label>المدفوع حتى الآن</label><input id="paid" type="number" min="0" step=".01" value="${d.paid??0}"></div>
+ <div class="field"><label>سبب الدين</label><input id="reason" value="${esc(d.reason)}"></div>
+ <div class="field full"><label>ملاحظات</label><textarea id="dnotes">${esc(d.notes)}</textarea></div></div>
+ <div class="modalfoot"><button class="primary">حفظ الدين</button><button type="button" class="secondary" onclick="closeModal()">إلغاء</button></div></form>`);
+ if(d.kind)$("kind").value=d.kind;
+ $("debtForm").onsubmit=saveDebt;
+}
+async function saveDebt(e){e.preventDefault();const id=$("debtId").value||db.ref("debts").push().key;const amount=Number($("amount").value),paid=Math.min(amount,Math.max(0,Number($("paid").value)));await db.ref("debts/"+id).set({name:$("dname").value.trim(),phone:$("dphone").value.trim(),kind:$("kind").value,amount,paid,reason:$("reason").value.trim(),notes:$("dnotes").value.trim(),createdAt:data.debts[id]?.createdAt||Date.now(),updatedAt:Date.now(),status:paid>=amount?"تم السداد":"مستحق"});closeModal();toast("تم حفظ الدين")}
+function renderDebts(){
+ let rec=0,pay=0,total=0;const arr=vals(data.debts).sort((a,b)=>b.createdAt-a.createdAt);
+ $("debtsBody").innerHTML=arr.length?arr.map(d=>{const rem=Math.max(0,Number(d.amount)-Number(d.paid));if(d.kind==="receivable")rec+=rem;else pay+=rem;total+=rem;return `<tr><td><b>${esc(d.name)}</b></td><td>${d.kind==="receivable"?"لي عند العميل":"عليّ للآخرين"}</td><td>${esc(d.phone)} ${d.phone?`<a href="${wa(d.phone)}" target="_blank">◉</a>`:""}</td><td>${money(d.amount)}</td><td>${money(d.paid)}</td><td>${money(rem)}</td><td>${esc(d.reason)}</td><td><span class="badge ${rem?"unpaid":"paid"}">${rem?"مستحق":"تم السداد"}</span></td><td>${formatDate(d.createdAt)}</td><td><div class="actions"><button class="secondary" onclick="openDebt('${d.id}')">تعديل</button>${rem?`<button class="secondary" onclick="payDebt('${d.id}')">سداد</button>`:""}<button class="danger" onclick="deleteDebt('${d.id}')">حذف</button></div></td></tr>`}).join(""):emptyRow(10);
+ $("dRec").textContent=money(rec);$("dPay").textContent=money(pay);$("dNet").textContent=money(rec-pay);$("dTotal").textContent=money(total);
+}
+async function payDebt(id){const d=data.debts[id],rem=Math.max(0,Number(d.amount)-Number(d.paid));const x=prompt(`المتبقي ${money(rem)}\nأدخل مبلغ السداد:`,String(rem));if(x===null)return;const n=Number(x);if(!Number.isFinite(n)||n<=0||n>rem)return toast("مبلغ السداد غير صحيح");await db.ref("debts/"+id).update({paid:Number(d.paid)+n,status:Number(d.paid)+n>=Number(d.amount)?"تم السداد":"مستحق",updatedAt:Date.now()});toast("تم تسجيل السداد")}
+async function deleteDebt(id){if(confirm("حذف هذا الدين؟")){await db.ref("debts/"+id).remove();toast("تم حذف الدين")}}
+
+function openExpense(id=""){const e=id?data.expenses[id]:{};openModal(id?"تعديل مصروف":"إضافة مصروف",`<form id="expForm"><input type="hidden" id="expId" value="${esc(id)}"><div class="formgrid">
+<div class="field"><label>اسم المصروف *</label><input id="ename" required value="${esc(e.name)}"></div><div class="field"><label>المبلغ *</label><input id="eamount" type="number" min="0" step=".01" required value="${e.amount??""}"></div>
+<div class="field"><label>التصنيف</label><select id="ecat"><option>مواصلات</option><option>إنترنت</option><option>إعلانات</option><option>اشتراكات</option><option>معدات</option><option>مصاريف تشغيل</option><option>أخرى</option></select></div>
+<div class="field"><label>التاريخ</label><input id="edate" type="date" value="${e.date||today()}"></div><div class="field full"><label>ملاحظات</label><textarea id="enotes">${esc(e.notes)}</textarea></div></div>
+<div class="modalfoot"><button class="primary">حفظ المصروف</button><button type="button" class="secondary" onclick="closeModal()">إلغاء</button></div></form>`);if(e.cat)$("ecat").value=e.cat;$("expForm").onsubmit=saveExpense}
+async function saveExpense(e){e.preventDefault();const id=$("expId").value||db.ref("expenses").push().key;await db.ref("expenses/"+id).set({name:$("ename").value.trim(),amount:Number($("eamount").value),cat:$("ecat").value,date:$("edate").value,notes:$("enotes").value.trim(),createdAt:data.expenses[id]?.createdAt||Date.now(),updatedAt:Date.now()});closeModal();toast("تم حفظ المصروف")}
+function renderExpenses(){const arr=vals(data.expenses).sort((a,b)=>String(b.date).localeCompare(String(a.date)));$("expensesBody").innerHTML=arr.length?arr.map(e=>`<tr><td>${esc(e.name)}</td><td>${money(e.amount)}</td><td>${esc(e.cat)}</td><td>${esc(e.date)}</td><td>${esc(e.notes)}</td><td><button class="secondary" onclick="openExpense('${e.id}')">تعديل</button> <button class="danger" onclick="deleteExpense('${e.id}')">حذف</button></td></tr>`).join(""):emptyRow(6);$("eTotal").textContent=money(calc().expenses)}
+
+function customerMap(){const m={};vals(data.transactions).forEach(t=>{const key=(t.phone||t.customer||"").trim();if(!key)return;if(!m[key])m[key]={name:t.customer,phone:t.phone,count:0,sales:0,profit:0,last:0};m[key].name=t.customer||m[key].name;m[key].count++;m[key].sales+=Number(t.sale);m[key].profit+=Number(t.profit);m[key].last=Math.max(m[key].last,Number(t.createdAt||0))});vals(data.debts).forEach(d=>{if(d.kind==="receivable"&&d.phone){const key=d.phone;if(!m[key])m[key]={name:d.name,phone:d.phone,count:0,sales:0,profit:0,last:0};m[key].debt=(m[key].debt||0)+Math.max(0,Number(d.amount)-Number(d.paid))}});return Object.values(m)}
+function renderCustomers(){const arr=customerMap();$("customersBody").innerHTML=arr.length?arr.sort((a,b)=>b.last-a.last).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.phone)}</td><td>${c.count}</td><td>${money(c.sales)}</td><td>${money(c.profit)}</td><td>${money(c.debt)}</td><td>${formatDate(c.last)}</td><td>${c.phone?`<a href="${wa(c.phone)}" target="_blank" class="secondary">WhatsApp</a>`:"—"}</td><td><button class="secondary" onclick="customerDetails('${esc(c.phone)}')">عرض</button></td></tr>`).join(""):emptyRow(9)}
+function customerDetails(phone){const ts=vals(data.transactions).filter(t=>t.phone===phone);openModal("تفاصيل العميل",`<h3>${esc(ts[0]?.customer||phone)}</h3><p class="subtitle">عدد العمليات: ${ts.length}</p>${ts.map(t=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(t.service)}</b> — ${money(t.sale)} — <span class="${t.profit>=0?"green":"red"}">${money(t.profit)}</span><div class="subtitle">${formatDate(t.createdAt)}</div></div>`).join("")||'<div class="empty">لا توجد عمليات</div>'}`)}
+
+async function deleteExpense(id){if(confirm("حذف هذا المصروف؟")){await db.ref("expenses/"+id).remove();toast("تم حذف المصروف")}}
+
+function reportRange(){let from=$("repFrom").value,to=$("repTo").value;if(!from&&!to){const d=new Date();to=d.toISOString().slice(0,10);d.setDate(d.getDate()-29);from=d.toISOString().slice(0,10)}return{from,to}}
+function renderReport(){
+ const {from,to}=reportRange();let arr=vals(data.transactions).filter(t=>{const d=new Date(t.createdAt).toISOString().slice(0,10);return (!from||d>=from)&&(!to||d<=to)}),sales=0,cost=0,profit=0,loss=0;arr.forEach(t=>{sales+=Number(t.sale);cost+=Number(t.cost);if(Number(t.profit)>=0)profit+=Number(t.profit);else loss+=Math.abs(Number(t.profit))});let ex=vals(data.expenses).filter(e=>(!from||e.date>=from)&&(!to||e.date<=to)).reduce((s,e)=>s+Number(e.amount),0);$("reportStats").innerHTML=[["المبيعات",sales],["التكلفة",cost],["الأرباح",profit],["الخسائر",loss],["المصروفات",ex],["صافي الربح",profit-loss-ex],["العمليات",arr.length]].map(x=>`<div class="stat"><small>${x[0]}</small><b>${typeof x[1]==="number"&&x[0]!=="العمليات"?money(x[1]):x[1]}</b></div>`).join("");
+ const map={};arr.forEach(t=>{const k=t.service||"غير محدد";map[k]=(map[k]||0)+Number(t.profit)});$("topServices").innerHTML=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8).map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid var(--line)"><span>${i+1}. ${esc(x[0])}</span><b class="${x[1]>=0?"green":"red"}">${money(x[1])}</b></div>`).join("")||'<div class="empty">لا توجد بيانات</div>';
+ const labels=[],valsP=[];if(from&&to){let d=new Date(from),end=new Date(to);let guard=0;while(d<=end&&guard++<366){const k=d.toISOString().slice(0,10);labels.push(d.toLocaleDateString("ar-EG",{month:"short",day:"numeric"}));valsP.push(arr.filter(t=>new Date(t.createdAt).toISOString().slice(0,10)===k).reduce((s,t)=>s+Number(t.profit),0));d.setDate(d.getDate()+1)}}if(reportChart)reportChart.destroy();reportChart=new Chart($("reportChart"),{type:"bar",data:{labels,datasets:[{label:"الربح",data:valsP}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}}}});
+}
+$("repFrom").value=(()=>{const d=new Date();d.setDate(d.getDate()-29);return d.toISOString().slice(0,10)})();$("repTo").value=today();
+
+function exportExcel(){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(vals(data.transactions)),"الشحنات");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(vals(data.debts)),"الديون");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(vals(data.expenses)),"المصروفات");XLSX.writeFile(wb,"MOHAB_STORE_Report.xlsx")}
+
+async function loadData(){
+ const [t,d,e]=await Promise.all([db.ref("transactions").once("value"),db.ref("debts").once("value"),db.ref("expenses").once("value")]);
+ data={transactions:t.val()||{},debts:d.val()||{},expenses:e.val()||{}};
+ renderDashboard();renderTransactions();renderDebts();renderExpenses();renderCustomers();renderReport();
+}
+$("googleBtn").onclick=async()=>{const p=new firebase.auth.GoogleAuthProvider();try{await auth.signInWithPopup(p)}catch(e){toast(e.message||"تعذر تسجيل الدخول")}};
+$("logoutBtn").onclick=()=>auth.signOut();
+auth.onAuthStateChanged(async u=>{
+ if(!u){user=null;$("loginView").classList.remove("hidden");$("appView").classList.add("hidden");return}
+ if((u.email||"").toLowerCase()!==ALLOWED_EMAIL.toLowerCase()){await auth.signOut();alert("هذا البريد الإلكتروني غير مصرح له باستخدام نظام MOHAB STORE.");return}
+ user=u;$("loginView").classList.add("hidden");$("appView").classList.remove("hidden");$("userEmail").textContent=u.email;$("userPhoto").src=u.photoURL||"";await loadData();
+});
+</script>
+</body>
+</html>

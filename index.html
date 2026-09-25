@@ -196,6 +196,16 @@
         
         .custom-method-item { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 20px; margin-bottom: 15px; }
 
+        .request-card {
+            background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:16px;
+            display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px;
+        }
+        .request-card-main { flex:1; min-width:0; }
+        .request-game-name { font-size:1rem; font-weight:800; color:#0f172a; word-break:break-word; }
+        .request-date { margin-top:5px; font-size:.78rem; color:#64748b; }
+        .request-empty { text-align:center; color:#94a3b8; padding:25px 10px; }
+        @media(max-width:768px){ .request-card{align-items:flex-start;flex-direction:column;} .request-card .btn-group{width:100%;} }
+
         /* تعديلات الهاتف المحمول - تصميم تطبيق عصري */
         @media (max-width: 768px) {
             .admin-nav {
@@ -274,6 +284,7 @@
     <div class="admin-nav">
         <button class="tab-btn active" onclick="openTab('tab-general', this)"><i class="fas fa-cog"></i> الإعدادات</button>
         <button class="tab-btn" onclick="openTab('tab-games', this)"><i class="fas fa-gamepad"></i> المنتجات</button>
+        <button class="tab-btn" onclick="openTab('tab-requests', this)"><i class="fas fa-comments"></i> طلبات الألعاب</button>
         <button class="tab-btn" onclick="openTab('tab-discounts', this)" style="color:#f59e0b;"><i class="fas fa-bolt"></i> الخصومات</button>
     </div>
 
@@ -424,7 +435,35 @@
             <div id="gamesList"></div>
         </div>
 
-        <!-- التبويب 3: الخصومات العشوائية -->
+        <!-- التبويب 3: طلبات الألعاب والأسئلة -->
+        <div id="tab-requests" class="tab-content">
+            <h2>طلبات الألعاب <i class="fas fa-comments" style="color:var(--primary);"></i></h2>
+
+            <div class="form-section" style="border-top:4px solid var(--primary);">
+                <div class="row">
+                    <div style="flex:2;">
+                        <label class="toggle-line">
+                            <input type="checkbox" id="gameRequestEnabled" checked>
+                            <span>إظهار نافذة طلب اسم اللعبة في الموقع الرئيسي</span>
+                        </label>
+                        <p style="font-size:.82rem;color:var(--text-light);margin:8px 0 0;line-height:1.7;">عند التشغيل يظهر للمستخدم مربع أنيق لكتابة اسم اللعبة التي يريد إضافتها. عند الإيقاف لن تظهر النافذة نهائياً للمستخدم.</p>
+                    </div>
+                    <div>
+                        <button class="action-btn" id="saveGameRequestSettingsBtn" onclick="saveGameRequestSettings()"><i class="fas fa-save"></i> حفظ حالة النافذة</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <h3 style="margin:0;"><i class="fas fa-list"></i> الألعاب التي طلبها الزوار</h3>
+                    <button class="btn-small btn-red" type="button" onclick="clearGameRequests()"><i class="fas fa-trash"></i> حذف الطلبات كلها</button>
+                </div>
+                <div id="gameRequestsList" style="margin-top:18px;"></div>
+            </div>
+        </div>
+
+        <!-- التبويب 4: الخصومات العشوائية -->
         <div id="tab-discounts" class="tab-content">
             
             <div class="verify-box">
@@ -607,22 +646,32 @@
         function compressAndEncodeImage(file, maxWidth = 800) {
             return new Promise((resolve, reject) => {
                 if (!file) return reject(new Error('لم يتم اختيار صورة'));
+                if (!file.type || !file.type.startsWith('image/')) return reject(new Error('الملف المختار ليس صورة.'));
                 const reader = new FileReader();
                 reader.onload = event => {
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d', { alpha: true });
                         let width = img.width || maxWidth;
                         let height = img.height || maxWidth;
                         if (width > maxWidth) {
                             height = Math.round(height * maxWidth / width);
                             width = maxWidth;
                         }
-                        canvas.width = width;
-                        canvas.height = height;
+                        canvas.width = width; canvas.height = height;
                         ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.78));
+                        // جودة أخف حتى لا تتحول صور الإعدادات إلى بيانات ضخمة داخل RTDB.
+                        let result = canvas.toDataURL('image/jpeg', 0.68);
+                        // نمنع حفظ صورة ضخمة قد تؤدي إلى بطء/فشل الكتابة، ولا نلمس أي بيانات قديمة.
+                        if (result.length > 1400000) {
+                            result = canvas.toDataURL('image/jpeg', 0.52);
+                        }
+                        if (result.length > 1800000) {
+                            reject(new Error('الصورة كبيرة جداً بعد الضغط. اختر صورة أصغر أو استخدم رابط صورة مباشر.'));
+                            return;
+                        }
+                        resolve(result);
                     };
                     img.onerror = () => reject(new Error('تعذر قراءة الصورة'));
                     img.src = event.target.result;
@@ -707,7 +756,7 @@
                 if (fileInput.files.length) value = await compressAndEncodeImage(fileInput.files[0], 900);
 
                 // تعديل العنصر نفسه فقط — لا يتم لمس settings/general أو settings بالكامل.
-                await db.ref('settings/general/logo').set(value);
+                await writeAndVerify(db.ref('settings/general/logo'), value);
                 fileInput.value = '';
                 document.getElementById('logoUrl').value = value.length > 200 ? '' : value;
                 alert('تم حفظ اللوجو بنجاح.');
@@ -731,7 +780,10 @@
             try {
                 let value = urlInput;
                 if (fileInput.files.length) value = await compressAndEncodeImage(fileInput.files[0], 1000);
-                await db.ref('settings/banners').push(value);
+                const newBannerRef = db.ref('settings/banners').push();
+                await newBannerRef.set(value);
+                const bannerCheck = await newBannerRef.once('value');
+                if (!bannerCheck.exists() || bannerCheck.val() !== value) throw new Error('لم يتم تأكيد حفظ صورة السلايدر.');
                 fileInput.value = '';
                 document.getElementById('newBannerUrl').value = '';
             } catch (e) {
@@ -774,12 +826,13 @@
                 }
 
                 // update على نفس العقدة، فلا يحذف أي حقول أخرى داخل settings.
-                await db.ref('settings/welcomePopup').update({
-                    enabled,
-                    image,
-                    duration,
-                    link
-                });
+                const welcomeRef = db.ref('settings/welcomePopup');
+                await welcomeRef.update({ enabled, image, duration, link });
+                const welcomeCheck = await welcomeRef.once('value');
+                const savedWelcome = welcomeCheck.val() || {};
+                if (savedWelcome.enabled !== enabled || String(savedWelcome.image || '') !== String(image || '') || Number(savedWelcome.duration || 0) !== Number(duration) || String(savedWelcome.link || '') !== String(link || '')) {
+                    throw new Error('لم يتم تأكيد حفظ إعدادات الإشعار.');
+                }
 
                 if (fileInput.files.length) fileInput.value = '';
                 updateWelcomePopupPreview(image);
@@ -1154,6 +1207,59 @@
             }
         }
 
+        async function writeAndVerify(ref, value) {
+            await ref.set(value);
+            const check = await ref.once('value');
+            if (!check.exists() || JSON.stringify(check.val()) !== JSON.stringify(value)) {
+                throw new Error('تمت محاولة الحفظ لكن لم يتم تأكيد البيانات من Firebase. لم يتم حذف البيانات القديمة.');
+            }
+            return check;
+        }
+
+        async function saveGameRequestSettings() {
+            if (!isAdminReady()) return alert('يجب تسجيل الدخول أولاً.');
+            const btn = document.getElementById('saveGameRequestSettingsBtn');
+            const enabled = document.getElementById('gameRequestEnabled').checked;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+            try {
+                await writeAndVerify(db.ref('settings/gameRequest/enabled'), enabled);
+                alert(enabled ? 'تم تشغيل نافذة طلبات الألعاب.' : 'تم إيقاف نافذة طلبات الألعاب.');
+            } catch(e) { alert('تعذر حفظ حالة النافذة: ' + dbErrorMessage(e)); }
+            finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> حفظ حالة النافذة'; }
+        }
+
+        function renderGameRequests(snap) {
+            const list = document.getElementById('gameRequestsList');
+            if (!list) return;
+            let html = '';
+            if (snap && snap.exists()) {
+                const arr = [];
+                snap.forEach(c => arr.push({key:c.key, ...(c.val() || {})}));
+                arr.sort((a,b)=>(Number(b.createdAt)||0)-(Number(a.createdAt)||0));
+                arr.forEach(r => {
+                    const name = String(r.gameName || r.name || 'بدون اسم').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    const date = r.createdAt ? new Date(Number(r.createdAt)).toLocaleString('ar-EG') : 'وقت غير معروف';
+                    html += `<div class="request-card"><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div><div class="btn-group"><button class="btn-small btn-red" type="button" onclick="deleteGameRequest('${r.key}')"><i class="fas fa-trash"></i> حذف</button></div></div>`;
+                });
+            }
+            list.innerHTML = html || '<div class="request-empty">لا توجد طلبات ألعاب حتى الآن.</div>';
+        }
+
+        async function deleteGameRequest(key) {
+            if (!key || !isAdminReady()) return;
+            if (!confirm('حذف طلب اللعبة هذا؟')) return;
+            try { await db.ref('gameRequests/' + key).remove(); }
+            catch(e){ alert('تعذر حذف الطلب: '+dbErrorMessage(e)); }
+        }
+
+        async function clearGameRequests() {
+            if (!isAdminReady()) return alert('يجب تسجيل الدخول أولاً.');
+            if (!confirm('سيتم حذف جميع طلبات الألعاب فقط. هل أنت متأكد؟')) return;
+            try { await db.ref('gameRequests').remove(); alert('تم حذف طلبات الألعاب.'); }
+            catch(e){ alert('تعذر حذف الطلبات: '+dbErrorMessage(e)); }
+        }
+
         function startDataListeners() {
             if (dataListenersStarted || !isAdminReady()) return;
             dataListenersStarted = true;
@@ -1183,6 +1289,14 @@
                 document.getElementById('welcomePopupLink').value = data.link || '';
                 updateWelcomePopupPreview(data.image || '');
             });
+
+            const gameRequestSettingsRef = db.ref('settings/gameRequest/enabled');
+            safeListener(gameRequestSettingsRef, snap => {
+                document.getElementById('gameRequestEnabled').checked = !snap.exists() || snap.val() !== false;
+            });
+
+            const gameRequestsRef = db.ref('gameRequests');
+            safeListener(gameRequestsRef, renderGameRequests);
 
             const socialsRef = db.ref('settings/socials');
             safeListener(socialsRef, renderSocials);

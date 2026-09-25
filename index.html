@@ -204,6 +204,9 @@
         .request-game-name { font-size:1rem; font-weight:800; color:#0f172a; word-break:break-word; }
         .request-date { margin-top:5px; font-size:.78rem; color:#64748b; }
         .request-empty { text-align:center; color:#94a3b8; padding:25px 10px; }
+        #gameRequestsList { display:flex; flex-direction:column; width:100%; max-height:none !important; height:auto !important; overflow:visible !important; }
+        #gameRequestsList .request-card { flex:0 0 auto; width:100%; box-sizing:border-box; }
+        .request-number { min-width:32px; height:32px; border-radius:10px; background:rgba(14,165,233,.10); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:900; }
         @media(max-width:768px){ .request-card{align-items:flex-start;flex-direction:column;} .request-card .btn-group{width:100%;} }
 
         /* تعديلات الهاتف المحمول - تصميم تطبيق عصري */
@@ -1237,10 +1240,10 @@
                 const arr = [];
                 snap.forEach(c => arr.push({key:c.key, ...(c.val() || {})}));
                 arr.sort((a,b)=>(Number(b.createdAt)||0)-(Number(a.createdAt)||0));
-                arr.forEach(r => {
+                arr.forEach((r, index) => {
                     const name = String(r.gameName || r.name || 'بدون اسم').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                     const date = r.createdAt ? new Date(Number(r.createdAt)).toLocaleString('ar-EG') : 'وقت غير معروف';
-                    html += `<div class="request-card"><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div><div class="btn-group"><button class="btn-small btn-red" type="button" onclick="deleteGameRequest('${r.key}')"><i class="fas fa-trash"></i> حذف</button></div></div>`;
+                    html += `<div class="request-card"><div class="request-number">${index + 1}</div><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div></div>`;
                 });
             }
             list.innerHTML = html || '<div class="request-empty">لا توجد طلبات ألعاب حتى الآن.</div>';

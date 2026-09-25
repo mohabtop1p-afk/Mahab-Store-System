@@ -1239,11 +1239,19 @@
             if (snap && snap.exists()) {
                 const arr = [];
                 snap.forEach(c => arr.push({key:c.key, ...(c.val() || {})}));
-                arr.sort((a,b)=>(Number(b.createdAt)||0)-(Number(a.createdAt)||0));
+                // كل سجل في Firebase يعتبر طلباً مستقلاً، حتى لو كان اسم اللعبة مكرراً.
+                // لا نستخدم اسم اللعبة كمفتاح ولا ندمج الطلبات المتشابهة.
+                arr.sort((a,b) => {
+                    const at = Number(a.createdAt) || 0;
+                    const bt = Number(b.createdAt) || 0;
+                    if (bt !== at) return bt - at;
+                    return String(b.key || '').localeCompare(String(a.key || ''));
+                });
                 arr.forEach((r, index) => {
                     const name = String(r.gameName || r.name || 'بدون اسم').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                     const date = r.createdAt ? new Date(Number(r.createdAt)).toLocaleString('ar-EG') : 'وقت غير معروف';
-                    html += `<div class="request-card"><div class="request-number">${index + 1}</div><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div></div>`;
+                    // كل طلب له بطاقة مستقلة؛ لذلك لو نفس الاسم أُرسل 10 مرات ستظهر البطاقات العشر كلها.
+                    html += `<div class="request-card" data-request-key="${String(r.key || '').replace(/[^a-zA-Z0-9_-]/g,'')}"><div class="request-number">${index + 1}</div><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div></div>`;
                 });
             }
             list.innerHTML = html || '<div class="request-empty">لا توجد طلبات ألعاب حتى الآن.</div>';

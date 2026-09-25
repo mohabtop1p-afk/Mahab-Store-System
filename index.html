@@ -207,6 +207,10 @@
         #gameRequestsList { display:flex; flex-direction:column; width:100%; max-height:none !important; height:auto !important; overflow:visible !important; }
         #gameRequestsList .request-card { flex:0 0 auto; width:100%; box-sizing:border-box; }
         .request-number { min-width:32px; height:32px; border-radius:10px; background:rgba(14,165,233,.10); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:900; }
+        .request-delete-btn { width:42px; height:42px; border:1px solid rgba(239,68,68,.18); border-radius:12px; background:rgba(239,68,68,.07); color:#ef4444; cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto; transition:.2s ease; }
+        .request-delete-btn:hover { background:#ef4444; color:#fff; transform:translateY(-1px); box-shadow:0 8px 18px rgba(239,68,68,.18); }
+        .request-game-name i { color:var(--primary); margin-left:8px; }
+        .request-date i { margin-left:5px; }
         @media(max-width:768px){ .request-card{align-items:flex-start;flex-direction:column;} .request-card .btn-group{width:100%;} }
 
         /* تعديلات الهاتف المحمول - تصميم تطبيق عصري */
@@ -708,7 +712,7 @@
         function stopDataListeners() {
             while (activeDbListeners.length) {
                 const item = activeDbListeners.pop();
-                try { item.ref.off('value', item.listener); } catch (e) {}
+                try { item.ref.off(item.event || 'value', item.listener); } catch (e) {}
             }
             dataListenersStarted = false;
         }
@@ -1232,29 +1236,61 @@
             finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> حفظ حالة النافذة'; }
         }
 
-        function renderGameRequests(snap) {
+        // يحتفظ بنسخة محلية من كل طلب ظاهر في Firebase. لا يوجد تجميع أو استبدال
+        // للطلبات المتشابهة؛ كل push في قاعدة البيانات = بطاقة مستقلة.
+        const gameRequestsCache = Object.create(null);
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+
+        function renderGameRequests() {
             const list = document.getElementById('gameRequestsList');
             if (!list) return;
-            let html = '';
+            const arr = Object.keys(gameRequestsCache).map(key => ({
+                key, ...(gameRequestsCache[key] || {})
+            }));
+
+            arr.sort((a,b) => {
+                const at = Number(a.createdAt) || 0;
+                const bt = Number(b.createdAt) || 0;
+                if (bt !== at) return bt - at;
+                return String(b.key).localeCompare(String(a.key));
+            });
+
+            if (!arr.length) {
+                list.innerHTML = '<div class="request-empty"><i class="fas fa-inbox"></i><br>لا توجد طلبات ألعاب حتى الآن.</div>';
+                return;
+            }
+
+            list.innerHTML = arr.map((r,index) => {
+                const name = escapeHtml(r.gameName || r.name || 'بدون اسم');
+                const date = r.createdAt ? new Date(Number(r.createdAt)).toLocaleString('ar-EG') : 'وقت غير معروف';
+                const key = escapeHtml(r.key);
+                return `<div class="request-card" data-request-key="${key}">
+                    <div class="request-number">${index + 1}</div>
+                    <div class="request-card-main">
+                        <div class="request-game-name"><i class="fas fa-gamepad"></i>${name}</div>
+                        <div class="request-date"><i class="far fa-clock"></i>${date}</div>
+                    </div>
+                    <button class="request-delete-btn" type="button" title="حذف هذا الطلب" onclick="deleteGameRequest('${key}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        function syncGameRequestsFromSnapshot(snap) {
+            // نضيف كل السجلات الموجودة، ولا نمسح الكاش هنا حتى لا يحدث سباق
+            // بين value و child_added عند فتح الصفحة. child_removed هو المسؤول عن الحذف.
             if (snap && snap.exists()) {
-                const arr = [];
-                snap.forEach(c => arr.push({key:c.key, ...(c.val() || {})}));
-                // كل سجل في Firebase يعتبر طلباً مستقلاً، حتى لو كان اسم اللعبة مكرراً.
-                // لا نستخدم اسم اللعبة كمفتاح ولا ندمج الطلبات المتشابهة.
-                arr.sort((a,b) => {
-                    const at = Number(a.createdAt) || 0;
-                    const bt = Number(b.createdAt) || 0;
-                    if (bt !== at) return bt - at;
-                    return String(b.key || '').localeCompare(String(a.key || ''));
-                });
-                arr.forEach((r, index) => {
-                    const name = String(r.gameName || r.name || 'بدون اسم').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    const date = r.createdAt ? new Date(Number(r.createdAt)).toLocaleString('ar-EG') : 'وقت غير معروف';
-                    // كل طلب له بطاقة مستقلة؛ لذلك لو نفس الاسم أُرسل 10 مرات ستظهر البطاقات العشر كلها.
-                    html += `<div class="request-card" data-request-key="${String(r.key || '').replace(/[^a-zA-Z0-9_-]/g,'')}"><div class="request-number">${index + 1}</div><div class="request-card-main"><div class="request-game-name"><i class="fas fa-gamepad" style="color:var(--primary);margin-left:7px;"></i>${name}</div><div class="request-date">${date}</div></div></div>`;
+                snap.forEach(child => {
+                    gameRequestsCache[child.key] = child.val() || {};
                 });
             }
-            list.innerHTML = html || '<div class="request-empty">لا توجد طلبات ألعاب حتى الآن.</div>';
+            renderGameRequests();
         }
 
         async function deleteGameRequest(key) {
@@ -1307,7 +1343,18 @@
             });
 
             const gameRequestsRef = db.ref('gameRequests');
-            safeListener(gameRequestsRef, renderGameRequests);
+            // value: تحميل كل السجلات الموجودة بالفعل.
+            safeListener(gameRequestsRef, syncGameRequestsFromSnapshot);
+            // child listeners: إضافة/تعديل/حذف كل طلب فورياً بدون استبدال الطلبات السابقة.
+            const onRequestAdded = snap => { gameRequestsCache[snap.key] = snap.val() || {}; renderGameRequests(); };
+            const onRequestChanged = snap => { gameRequestsCache[snap.key] = snap.val() || {}; renderGameRequests(); };
+            const onRequestRemoved = snap => { delete gameRequestsCache[snap.key]; renderGameRequests(); };
+            gameRequestsRef.on('child_added', onRequestAdded);
+            gameRequestsRef.on('child_changed', onRequestChanged);
+            gameRequestsRef.on('child_removed', onRequestRemoved);
+            activeDbListeners.push({ref:gameRequestsRef, listener:onRequestAdded, event:'child_added'});
+            activeDbListeners.push({ref:gameRequestsRef, listener:onRequestChanged, event:'child_changed'});
+            activeDbListeners.push({ref:gameRequestsRef, listener:onRequestRemoved, event:'child_removed'});
 
             const socialsRef = db.ref('settings/socials');
             safeListener(socialsRef, renderSocials);

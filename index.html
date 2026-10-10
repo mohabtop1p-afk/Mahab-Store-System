@@ -107,7 +107,7 @@ i[data-lucide]{width:19px;height:19px;stroke-width:2;vertical-align:middle}
     <div class="login-logo">M</div>
     <h1>MOHAB STORE</h1>
     <p>نظام إدارة الأرباح والشحن والديون<br>النسخة الرسمية</p>
-    <button class="btn primary google" onclick="loginWithGoogle()"><i data-lucide="log-in"></i> تسجيل الدخول بحساب Google</button>
+    <button id="googleLoginBtn" type="button" class="btn primary google" onclick="loginWithGoogle()"><i data-lucide="log-in"></i> <span id="googleLoginText">تسجيل الدخول بحساب Google</span></button>
     <div class="notice">الحساب المسموح به: mohabtop1p@gmail.com</div>
   </div>
 </div>
@@ -220,4 +220,381 @@ i[data-lucide]{width:19px;height:19px;stroke-width:2;vertical-align:middle}
   <div class="page" id="reports">
     <div class="top"><div class="title"><h1>التقارير والتحليلات</h1><p>أرقام واضحة تساعدك على معرفة أداء الستور</p></div></div>
     <div class="grid stats">
-      <div class="card stat"><div class="s-top"><span>إجمالي الربح قبل المصروفات</
+      <div class="card stat"><div class="s-top"><span>إجمالي الربح قبل المصروفات</span><div class="s-icon"><i data-lucide="trending-up"></i></div></div><h2 id="repGross" class="green">0 ج.م</h2></div>
+      <div class="card stat"><div class="s-top"><span>إجمالي الخسائر</span><div class="s-icon"><i data-lucide="trending-down"></i></div></div><h2 id="repLoss" class="red">0 ج.م</h2></div>
+      <div class="card stat"><div class="s-top"><span>المصروفات</span><div class="s-icon"><i data-lucide="receipt"></i></div></div><h2 id="repExpenses">0 ج.م</h2></div>
+      <div class="card stat"><div class="s-top"><span>صافي الربح النهائي</span><div class="s-icon"><i data-lucide="sparkles"></i></div></div><h2 id="repNet" class="green">0 ج.م</h2></div>
+    </div>
+    <div class="card panel section"><div class="section-head"><h3>ملاحظات مهمة</h3></div><div style="color:var(--muted);line-height:2">• الربح = سعر البيع للعميل − التكلفة عليك.<br>• إذا كانت النتيجة سالبة يتم تسجيلها كخسارة تلقائياً.<br>• الديون لا تعتبر مصروفاً؛ يتم فصلها عن حساب الربح مع متابعة التحصيل.<br>• جميع البيانات محفوظة بأمان على خوادم Google ويتم مزامنتها بشكل فوري.</div></div>
+  </div>
+
+  <div class="page" id="settings">
+    <div class="top"><div class="title"><h1>الإعدادات</h1><p>إعدادات النظام والحساب</p></div></div>
+    <div class="card panel">
+      <div class="form-grid">
+        <div class="field"><label>اسم الستور</label><input value="MOHAB STORE"></div>
+        <div class="field"><label>العملة</label><select><option>جنيه مصري — ج.م</option></select></div>
+        <div class="field"><label>حساب Google المسموح</label><input value="mohabtop1p@gmail.com" readonly></div>
+      </div>
+      <div class="profit-preview"><div><b>الحساب متصل بنجاح</b><br><small style="color:var(--muted)">البيانات محفوظة ويتم عمل نسخ احتياطية تلقائياً.</small></div><button class="btn danger" onclick="logout()">تسجيل الخروج</button></div>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom-nav">
+  <button data-page="dashboard" class="active"><i data-lucide="layout-dashboard"></i><span>الرئيسية</span></button>
+  <button data-page="shipments"><i data-lucide="credit-card"></i><span>الشحن</span></button>
+  <button data-page="debts"><i data-lucide="users"></i><span>الديون</span></button>
+  <button data-page="reports"><i data-lucide="chart-no-axes-combined"></i><span>التقارير</span></button>
+  <button data-page="settings"><i data-lucide="settings"></i><span>الإعدادات</span></button>
+</nav>
+
+<div id="modalBack" class="modal-back"><div class="modal" id="modal"></div></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// إعدادات Firebase الخاصة بك
+const firebaseConfig = {
+  apiKey: "AIzaSyB_6lo6T1dPNMAI-_d9gYfQ0ER8nPYtzxA",
+  authDomain: "buy-and-sell-at-mahab-store.firebaseapp.com",
+  projectId: "buy-and-sell-at-mahab-store",
+  storageBucket: "buy-and-sell-at-mahab-store.firebasestorage.app",
+  messagingSenderId: "150928118380",
+  appId: "1:150928118380:web:c96db14cb8c2160eac7e49",
+  measurementId: "G-N6T6G5XQKT"
+};
+
+// تهيئة Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const ALLOWED_EMAIL = "mohabtop1p@gmail.com";
+let docRef = db.collection('appData').doc('mainStore');
+
+// حالة البيانات الأساسية
+let data = { shipments: [], debts: [], expenses: [], accounts: [], paybt: { balance: 0, deposits: 0, logs: [] } };
+let dataLoaded = false;
+let saveQueue = Promise.resolve();
+let dataLoadFailed = false;
+
+// إظهار سبب الخطأ بشكل مفهوم بدلاً من رسالة عامة
+function friendlyFirebaseError(error, action) {
+  const code = error && error.code ? error.code : '';
+  console.error(`Firebase ${action}:`, error);
+  if (code.includes('permission-denied') || code.includes('unauthorized')) {
+    return 'تم رفض الوصول إلى قاعدة البيانات. راجع Firestore Security Rules وصلاحيات الحساب.';
+  }
+  if (code.includes('unavailable') || code.includes('deadline-exceeded')) {
+    return 'خدمة قاعدة البيانات غير متاحة حالياً. تحقق من الإنترنت وحاول مرة أخرى.';
+  }
+  if (code.includes('failed-precondition')) {
+    return 'إعدادات قاعدة البيانات تحتاج إلى مراجعة من Firebase Console.';
+  }
+  if (code.includes(' unauthenticated') || code.includes('unauthenticated')) {
+    return 'انتهت جلسة تسجيل الدخول. سجّل الدخول مرة أخرى.';
+  }
+  if (code.includes('network')) {
+    return 'تعذر الاتصال بالإنترنت أو بخوادم Firebase.';
+  }
+  return `تعذر ${action}. رمز الخطأ: ${code || 'غير معروف'}. افتح وحدة التحكم لمعرفة التفاصيل.`;
+}
+
+// تحميل البيانات: لا ننشئ مستنداً فارغاً تلقائياً إذا لم نجده؛ حتى لا نغطي على مشكلة المسار/المستند.
+async function loadData() {
+  dataLoaded = false;
+  dataLoadFailed = false;
+  try {
+    const doc = await docRef.get({ source: 'server' });
+    if (!doc.exists) {
+      dataLoadFailed = true;
+      showToast('لم يتم العثور على مستند البيانات appData/mainStore. لم يتم إنشاء بيانات فارغة حفاظاً على سجلاتك.');
+      console.error('Firestore document missing:', 'appData/mainStore', 'project:', firebaseConfig.projectId);
+      return;
+    }
+
+    const saved = doc.data() || {};
+    data = {
+      ...saved,
+      shipments: Array.isArray(saved.shipments) ? saved.shipments : [],
+      debts: Array.isArray(saved.debts) ? saved.debts : [],
+      expenses: Array.isArray(saved.expenses) ? saved.expenses : [],
+      accounts: Array.isArray(saved.accounts) ? saved.accounts : [],
+      paybt: {
+        balance: Number(saved.paybt?.balance || 0),
+        deposits: Number(saved.paybt?.deposits || 0),
+        logs: Array.isArray(saved.paybt?.logs) ? saved.paybt.logs : []
+      }
+    };
+    data.shipments = data.shipments.map(x => ({ ...x, paybt: Number(x.paybt || 0) }));
+    dataLoaded = true;
+    refresh();
+    showToast('تم تحميل بياناتك من قاعدة البيانات بنجاح');
+  } catch (error) {
+    dataLoadFailed = true;
+    showToast(friendlyFirebaseError(error, 'تحميل البيانات'));
+  }
+}
+
+// تسجيل الدخول
+async function loginWithGoogle() {
+  const button = document.getElementById('googleLoginBtn');
+  const label = document.getElementById('googleLoginText');
+  const originalLabel = 'تسجيل الدخول بحساب Google';
+  try {
+    if (!window.firebase || !firebase.auth || typeof firebase.auth !== 'function') {
+      showToast('تعذر تحميل خدمة تسجيل الدخول من Google. تأكد من الإنترنت وافتح الملف من متصفح Chrome.');
+      console.error('Firebase Auth SDK is unavailable.');
+      return;
+    }
+    if (button) button.disabled = true;
+    if (label) label.textContent = 'جاري فتح تسجيل الدخول...';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    // Redirect is more reliable than popup on Android/mobile browsers and when popups are blocked.
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    if (isMobile) {
+      await firebase.auth().signInWithRedirect(provider);
+      return;
+    }
+    await firebase.auth().signInWithPopup(provider);
+  } catch (error) {
+    console.error('Google sign-in error:', error);
+    const code = (error && error.code) || '';
+    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await firebase.auth().signInWithRedirect(provider);
+        return;
+      } catch (redirectError) {
+        console.error('Google redirect sign-in error:', redirectError);
+        showToast('لم يفتح تسجيل الدخول. افتح الموقع من Chrome وتأكد أن النطاق مضاف في Firebase.');
+      }
+    } else if (code === 'auth/unauthorized-domain') {
+      showToast('النطاق الحالي غير مضاف: Firebase Console ← Authentication ← Settings ← Authorized domains.');
+    } else if (code === 'auth/operation-not-allowed') {
+      showToast('تسجيل الدخول بجوجل غير مفعّل في Firebase: Authentication ← Sign-in method ← Google.');
+    } else {
+      showToast('فشل تسجيل الدخول: ' + ((error && (error.message || error.code)) || 'خطأ غير معروف'));
+    }
+  } finally {
+    if (button) button.disabled = false;
+    if (label) label.textContent = originalLabel;
+  }
+}
+
+// تسجيل الخروج
+function logout() {
+  firebase.auth().signOut().then(() => location.reload()).catch(error => {
+    console.error(error);
+    showToast('تعذر تسجيل الخروج حالياً');
+  });
+}
+
+// التحقق من نتيجة تسجيل الدخول بعد الرجوع من Google (خصوصاً على الهاتف)
+firebase.auth().getRedirectResult().catch(error => {
+  console.error('Google redirect result error:', error);
+  if (error && error.code) {
+    showToast(error.code === 'auth/unauthorized-domain'
+      ? 'النطاق الحالي غير مضاف إلى Authorized domains في Firebase.'
+      : 'تعذر إكمال تسجيل الدخول بجوجل: ' + error.code);
+  }
+});
+
+// مراقبة حالة تسجيل الدخول والمصادقة
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    if ((user.email || '').toLowerCase() === ALLOWED_EMAIL.toLowerCase()) {
+      document.getElementById('login').classList.remove('show');
+      showToast('مرحباً بك! جاري تحميل البيانات...');
+      loadData();
+    } else {
+      firebase.auth().signOut();
+      showToast('عذراً، هذا البريد غير مصرح له بالدخول');
+      document.getElementById('login').classList.add('show');
+    }
+  } else {
+    dataLoaded = false;
+    document.getElementById('login').classList.add('show');
+  }
+});
+
+// حفظ البيانات في Firebase مع تسلسل عمليات الحفظ لتقليل احتمال تداخل الكتابات.
+// لا يتم الحفظ قبل نجاح التحميل، ولا تتم الكتابة إذا تعذر تحميل المستند.
+function save() {
+  if (!dataLoaded || dataLoadFailed) {
+    showToast('لم يتم الحفظ لأن تحميل البيانات لم يكتمل؛ حفاظاً على بياناتك لم تتم الكتابة.');
+    return;
+  }
+  const snapshot = JSON.parse(JSON.stringify(data));
+  saveQueue = saveQueue.then(() => docRef.set(snapshot)).then(() => {
+    // الحفظ اكتمل
+  }).catch(error => {
+    showToast(friendlyFirebaseError(error, 'حفظ البيانات'));
+  });
+  refresh();
+}
+
+// باقي دوال النظام كما هي لم تتأثر
+function money(n){return Number(n||0).toLocaleString('ar-EG')+' ج.م'}
+function today(){return new Date().toISOString().slice(0,10)}
+function go(page){
+ document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+ document.getElementById(page).classList.add('active');
+ document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
+ window.scrollTo({top:0,behavior:'smooth'}); refresh();
+}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));
+function showToast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
+function openModal(content){document.getElementById('modal').innerHTML=content;document.getElementById('modalBack').classList.add('open')}
+function closeModal(){document.getElementById('modalBack').classList.remove('open')}
+document.getElementById('modalBack').onclick=e=>{if(e.target.id==='modalBack')closeModal()}
+
+function openShipment(){
+ openModal(`<div class="modal-head"><h2>إضافة شحنة جديدة</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+ <form onsubmit="addShipment(event)">
+ <div class="form-grid">
+  <div class="field"><label>التاريخ</label><input name="date" type="date" value="${today()}" required></div>
+  <div class="field"><label>اسم العميل</label><input name="customer" placeholder="مثال: محمد" required></div>
+  <div class="field"><label>الخدمة / اللعبة</label><input name="service" placeholder="Free Fire / PUBG..." required></div>
+  <div class="field"><label>سعر الشحن للعميل</label><input name="sale" type="number" min="0" step="0.01" placeholder="150" required oninput="calcPreview()"></div>
+  <div class="field"><label>التكلفة عليك</label><input name="cost" type="number" min="0" step="0.01" placeholder="120" required oninput="calcPreview()"></div>
+  <div class="field full"><label>ملاحظات</label><textarea name="note" placeholder="أي تفاصيل عن العملية..."></textarea></div>
+ </div>
+ <div class="profit-preview"><span>النتيجة المتوقعة</span><b id="previewResult" class="green">0 ج.م</b></div>
+  <div class="mini" style="margin-top:10px"><span>رصيد باي بت بعد العملية</span><b id="previewPaybt">0.00 $</b></div>
+ <div class="form-actions"><button class="btn primary">حفظ العملية</button><button type="button" class="btn" onclick="closeModal()">إلغاء</button></div>
+ </form>`);
+ if(window.lucide) lucide.createIcons();
+}
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+const platformIcons={Google:'mail',Facebook:'facebook','X / Twitter':'twitter',TikTok:'music-2',Instagram:'instagram',Discord:'gamepad-2',Telegram:'send',YouTube:'youtube','أخرى':'key-round'};
+
+function openAccount(editId=null){
+ const a=editId?data.accounts.find(x=>x.id===editId):null;
+ const c=a||{platform:'Google',email:'',password:'',label:'',note:''};
+ openModal(`<div class="modal-head"><h2>${a?'تعديل الحساب':'إضافة حساب جديد'}</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+ <form onsubmit="saveAccount(event,${a?a.id:'null'})"><div class="form-grid">
+ <div class="field"><label>نوع الحساب</label><select name="platform">${Object.keys(platformIcons).map(x=>`<option ${x===c.platform?'selected':''}>${x}</option>`).join('')}</select></div>
+ <div class="field"><label>البريد الإلكتروني / اسم المستخدم</label><input name="email" value="${esc(c.email)}" required></div>
+ <div class="field"><label>الباسورد</label><input name="password" type="password" value="${esc(c.password)}" required></div>
+ <div class="field"><label>الحساب ده بتاع إيه؟</label><input name="label" value="${esc(c.label)}" placeholder="مثال: حساب الشحن الرئيسي" required></div>
+ <div class="field full"><label>ملاحظات</label><textarea name="note">${esc(c.note)}</textarea></div>
+ </div><div class="notice">بيانات الحسابات تُحفظ ضمن بيانات النظام في Firebase.</div>
+ <div class="form-actions"><button class="btn primary">حفظ الحساب</button><button type="button" class="btn" onclick="closeModal()">إلغاء</button></div></form>`);
+ if(window.lucide)lucide.createIcons();
+}
+function saveAccount(e,id){
+ e.preventDefault();const f=new FormData(e.target);
+ const item={id:id||Date.now(),platform:f.get('platform'),email:f.get('email'),password:f.get('password'),label:f.get('label'),note:f.get('note')};
+ if(id){const i=data.accounts.findIndex(x=>x.id===id);if(i>-1)data.accounts[i]=item}else data.accounts.unshift(item);
+ save();closeModal();showToast(id?'تم تعديل الحساب':'تمت إضافة الحساب');
+}
+function toggleAccountPassword(id){const e=document.getElementById('pass-'+id);if(e)e.type=e.type==='password'?'text':'password'}
+function delAccount(id){if(confirm('هل تريد حذف الحساب؟')){data.accounts=data.accounts.filter(x=>x.id!==id);save();showToast('تم حذف الحساب')}}
+function renderAccounts(){
+ const el=document.getElementById('accountRows');if(!el)return;
+ el.innerHTML=data.accounts.length?data.accounts.map(a=>`<div class="card account-card">
+ <div class="account-head"><div class="account-icon"><i data-lucide="${platformIcons[a.platform]||'key-round'}"></i></div><div class="account-meta"><b>${esc(a.label)}</b><small>${esc(a.platform)}</small></div></div>
+ <div class="account-email">${esc(a.email)}</div>
+ <div class="password-row"><input id="pass-${a.id}" type="password" value="${esc(a.password)}" readonly><button class="btn" type="button" onclick="toggleAccountPassword(${a.id})"><i data-lucide="eye"></i></button></div>
+ ${a.note?`<div style="color:var(--muted);font-size:12px;margin-top:10px;line-height:1.7">${esc(a.note)}</div>`:''}
+ <div class="account-actions"><button class="btn" onclick="openAccount(${a.id})"><i data-lucide="pencil"></i> تعديل</button><button class="btn danger" onclick="delAccount(${a.id})"><i data-lucide="trash-2"></i> حذف</button></div>
+ </div>`).join(''):`<div class="card account-card" style="grid-column:1/-1"><div class="empty">لا توجد حسابات محفوظة<br><small>ابدأ بإضافة أول حساب.</small></div></div>`;
+ if(window.lucide)lucide.createIcons();
+}
+function openPaybtTopup(){
+ openModal(`<div class="modal-head"><h2>إضافة دولارات إلى باي بت</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+ <form onsubmit="addPaybtBalance(event)"><div class="form-grid">
+ <div class="field"><label>المبلغ بالدولار</label><input name="amount" type="number" min="0.01" step="0.01" required placeholder="50"></div>
+ <div class="field"><label>البيان</label><input name="note" placeholder="مثال: تجديد رصيد باي بت"></div>
+ </div><div class="form-actions"><button class="btn primary">إضافة الرصيد</button></div></form>`);
+ if(window.lucide)lucide.createIcons();
+}
+function addPaybtBalance(e){
+ e.preventDefault();const f=new FormData(e.target),amount=Number(f.get('amount')||0);if(amount<=0)return;
+ data.paybt.balance=Number(data.paybt.balance||0)+amount;
+ data.paybt.deposits=Number(data.paybt.deposits||0)+amount;
+ data.paybt.logs.unshift({id:Date.now(),date:today(),type:'deposit',amount,note:f.get('note')||'إضافة دولارات',balance:data.paybt.balance});
+ save();closeModal();showToast(`تمت إضافة ${amount.toFixed(2)} $ إلى باي بت`);
+}
+function renderPaybt(){
+ const p=data.paybt||{balance:0,deposits:0,logs:[]};
+ const b=document.getElementById('paybtBalance');if(b)b.textContent=Number(p.balance||0).toFixed(2)+' $';
+ const d=document.getElementById('paybtDeposits');if(d)d.textContent=Number(p.deposits||0).toFixed(2)+' $';
+ const spent=(p.logs||[]).filter(x=>x.type==='shipment').reduce((a,x)=>a+Number(x.amount||0),0);
+ const sp=document.getElementById('paybtSpent');if(sp)sp.textContent=spent.toFixed(2)+' $';
+ const op=document.getElementById('paybtOps');if(op)op.textContent=(p.logs||[]).filter(x=>x.type==='shipment').length;
+ const rows=document.getElementById('paybtRows');if(!rows)return;
+ rows.innerHTML=(p.logs||[]).length?(p.logs||[]).slice(0,100).map(x=>`<tr><td>${esc(x.date)}</td><td>${x.type==='shipment'?'خصم شحنة':'إضافة دولارات'}</td><td>${esc(x.customer||x.note||'—')}</td><td class="${x.type==='shipment'?'paybt-negative':'paybt-positive'}">${x.type==='shipment'?'−':'+'}${Number(x.amount||0).toFixed(2)} $</td><td>${Number(x.balance||0).toFixed(2)} $</td></tr>`).join(''):`<tr><td colspan="5" class="empty">لا يوجد سجل باي بت</td></tr>`;
+}
+
+function calcPreview(){const f=document.querySelector('#modal form');if(!f)return;const n=Number(f.sale.value||0)-Number(f.cost.value||0);const e=document.getElementById('previewResult');e.textContent=money(Math.abs(n))+(n>=0?' — ربح':' — خسارة');e.className=n>=0?'green':'red';const p=document.getElementById('previewPaybt');if(p)p.textContent=Math.max(0,Number(data.paybt?.balance||0)-Number(f.paybt?.value||0)).toFixed(2)+' $'}
+function addShipment(e){e.preventDefault();const f=new FormData(e.target);const paybt=Number(f.get('paybt')||0);if(paybt>Number(data.paybt?.balance||0)){showToast('رصيد باي بت غير كافٍ لهذه الشحنة');return;}const id=Date.now();data.shipments.unshift({id,date:f.get('date'),customer:f.get('customer'),service:f.get('service'),sale:+f.get('sale'),cost:+f.get('cost'),paybt,note:f.get('note')});if(paybt>0){data.paybt.balance=Number(data.paybt.balance||0)-paybt;data.paybt.logs.unshift({id:Date.now()+1,date:f.get('date'),type:'shipment',amount:paybt,customer:f.get('customer'),shipmentId:id,balance:data.paybt.balance});}save();closeModal();showToast('تمت إضافة الشحنة وخصم باي بت بنجاح')}
+function delShipment(id){if(confirm('هل تريد حذف العملية؟')){const sh=data.shipments.find(x=>x.id===id);if(sh&&Number(sh.paybt||0)>0){data.paybt.balance=Number(data.paybt.balance||0)+Number(sh.paybt);data.paybt.logs.unshift({id:Date.now(),date:today(),type:'deposit',amount:Number(sh.paybt),note:'إرجاع خصم بعد حذف الشحنة',balance:data.paybt.balance});}data.shipments=data.shipments.filter(x=>x.id!==id);data.paybt.logs=(data.paybt.logs||[]).filter(x=>x.shipmentId!==id);save();showToast('تم حذف العملية وإرجاع دولارات باي بت')}}
+function renderShipments(){
+ const q=(document.getElementById('shipSearch')?.value||'').toLowerCase(), filter=document.getElementById('shipFilter')?.value||'all';
+ let arr=data.shipments.filter(x=>(x.customer+' '+x.service).toLowerCase().includes(q));
+ const gross=data.shipments.reduce((s,x)=>s+Math.max(0,x.sale-x.cost),0), loss=data.shipments.reduce((s,x)=>s+Math.max(0,x.cost-x.sale),0);
+ document.getElementById('shipCount').textContent=data.shipments.length;
+ document.getElementById('shipGross').textContent=money(gross);
+ document.getElementById('shipLoss').textContent=money(loss);
+ if(filter==='profit')arr=arr.filter(x=>x.sale-x.cost>=0);if(filter==='loss')arr=arr.filter(x=>x.sale-x.cost<0);
+ document.getElementById('shipmentRows').innerHTML=arr.length?arr.map(x=>{let n=x.sale-x.cost;return `<tr><td>${x.date}</td><td>${x.customer}</td><td>${x.service}</td><td>${money(x.sale)}</td><td>${money(x.cost)}</td><td class="paybt-negative">${Number(x.paybt||0).toFixed(2)} $</td><td class="${n>=0?'green':'red'}">${n>=0?'+':'−'}${money(Math.abs(n))}</td><td><span class="badge">${n>=0?'ربح':'خسارة'}</span></td><td><button class="btn danger" onclick="delShipment(${x.id})"><i data-lucide="trash-2"></i> حذف</button></td></tr>`}).join(''):`<tr><td colspan="9" class="empty">لا توجد عمليات مطابقة</td></tr>`;
+}
+function openDebt(){
+ openModal(`<div class="modal-head"><h2>إضافة عميل عليه دين</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+ <form onsubmit="addDebt(event)"><div class="form-grid">
+ <div class="field"><label>اسم العميل</label><input name="name" required></div>
+ <div class="field"><label>رقم واتساب</label><input name="phone" placeholder="2010xxxxxxxx" required></div>
+ <div class="field"><label>إجمالي المبلغ</label><input name="total" type="number" min="0" required></div>
+ <div class="field full"><label>ملاحظة</label><textarea name="note" placeholder="تفاصيل الدين..."></textarea></div>
+ </div><div class="form-actions"><button class="btn primary">حفظ الدين</button></div></form>`);
+ if(window.lucide) lucide.createIcons();
+}
+function addDebt(e){e.preventDefault();const f=new FormData(e.target);data.debts.unshift({id:Date.now(),name:f.get('name'),phone:f.get('phone').replace(/\D/g,''),total:+f.get('total'),paid:0,note:f.get('note')});save();closeModal();showToast('تمت إضافة الدين')}
+function wa(phone){return 'https://wa.me/'+phone.replace(/\D/g,'')}
+function addPayment(id){
+ const d=data.debts.find(x=>x.id===id); if(!d)return;
+ openModal(`<div class="modal-head"><h2>تسجيل دفعة — ${d.name}</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+ <div class="mini" style="margin-bottom:14px"><span>المتبقي</span><b class="yellow">${money(d.total-d.paid)}</b></div>
+ <form onsubmit="payDebt(event,${id})"><div class="field"><label>قيمة الدفعة</label><input name="amount" type="number" min="0.01" max="${d.total-d.paid}" step=".01" required></div><div class="form-actions"><button class="btn primary">تسجيل الدفعة</button></div></form>`);
+ if(window.lucide) lucide.createIcons();
+}
+function payDebt(e,id){e.preventDefault();const amount=+new FormData(e.target).get('amount');const d=data.debts.find(x=>x.id===id);d.paid=Math.min(d.total,d.paid+amount);save();closeModal();showToast(d.paid>=d.total?'تم سداد الدين بالكامل':'تم تسجيل الدفعة')}
+function delDebt(id){if(confirm('حذف سجل الدين؟')){data.debts=data.debts.filter(x=>x.id!==id);save()}}
+function renderDebts(){
+ const q=(document.getElementById('debtSearch')?.value||'').toLowerCase();const arr=data.debts.filter(x=>x.name.toLowerCase().includes(q));
+ let all=0,paid=0;data.debts.forEach(x=>{all+=x.total;paid+=x.paid});document.getElementById('debtAll').textContent=money(all);document.getElementById('debtPaid').textContent=money(paid);document.getElementById('debtRemain').textContent=money(all-paid);
+ document.getElementById('debtRows').innerHTML=arr.length?arr.map(x=>{let rem=x.total-x.paid;return `<tr><td><b>${x.name}</b></td><td><a href="${wa(x.phone)}" target="_blank" style="text-decoration:none;font-size:22px"><i data-lucide="message-circle"></i></a></td><td>${money(x.total)}</td><td class="green">${money(x.paid)}</td><td class="yellow">${money(rem)}</td><td><span class="badge">${rem<=0?'تم السداد':'متبقي'}</span></td><td>${rem>0?`<button class="btn green" onclick="addPayment(${x.id})"><i data-lucide="plus"></i> دفعة</button>`:''} <button class="btn danger" onclick="delDebt(${x.id})"><i data-lucide="trash-2"></i> حذف</button></td></tr>`}).join(''):`<tr><td colspan="7" class="empty">لا توجد ديون</td></tr>`;
+}
+function openExpense(){
+ openModal(`<div class="modal-head"><h2>إضافة مصروف</h2><button class="close" onclick="closeModal()"><i data-lucide="x"></i></button></div><form onsubmit="addExpense(event)"><div class="form-grid">
+ <div class="field"><label>التاريخ</label><input name="date" type="date" value="${today()}" required></div><div class="field"><label>نوع المصروف</label><select name="type"><option>تشغيل</option><option>إعلانات</option><option>إنترنت</option><option>أخرى</option></select></div><div class="field"><label>المبلغ</label><input name="amount" type="number" min="0" required></div><div class="field full"><label>الوصف</label><input name="desc" placeholder="مثال: إعلان أو مصروف تشغيل"></div>
+ </div><div class="form-actions"><button class="btn primary">حفظ المصروف</button></div></form>`);
+ if(window.lucide) lucide.createIcons();
+}
+function addExpense(e){e.preventDefault();const f=new FormData(e.target);data.expenses.unshift({id:Date.now(),date:f.get('date'),type:f.get('type'),desc:f.get('desc'),amount:+f.get('amount')});save();closeModal();showToast('تمت إضافة المصروف')}
+function delExpense(id){data.expenses=data.expenses.filter(x=>x.id!==id);save()}
+function renderExpenses(){document.getElementById('expenseRows').innerHTML=data.expenses.length?data.expenses.map(x=>`<tr><td>${x.date}</td><td>${x.type}</td><td>${x.desc||'—'}</td><td>${money(x.amount)}</td><td><button class="btn danger" onclick="delExpense(${x.id})"><i data-lucide="trash-2"></i> حذف</button></td></tr>`).join(''):`<tr><td colspan="5" class="empty">لا توجد مصروفات</td></tr>`}
+function refresh(){
+ const gross=data.shipments.reduce((s,x)=>s+x.sale-x.cost,0),sales=data.shipments.reduce((s,x)=>s+x.sale,0),cost=data.shipments.reduce((s,x)=>s+x.cost,0),loss=data.shipments.reduce((s,x)=>s+Math.max(0,x.cost-x.sale),0),expenses=data.expenses.reduce((s,x)=>s+x.amount,0);
+ const debts=data.debts.reduce((s,x)=>s+x.total-x.paid,0);
+ document.getElementById('statProfit').textContent=money(gross-expenses);document.getElementById('statSales').textContent=money(sales);document.getElementById('statCost').textContent=money(cost);document.getElementById('statDebt').textContent=money(debts);
+ const ts=data.shipments.filter(x=>x.date===today()), tp=ts.reduce((s,x)=>s+Math.max(0,x.sale-x.cost),0), tl=ts.reduce((s,x)=>s+Math.max(0,x.cost-x.sale),0);
+ document.getElementById('todayCount').textContent=ts.length;document.getElementById('todayProfit').textContent=money(tp);document.getElementById('todayLoss').textContent=money(tl);document.getElementById('todayNet').textContent=money(tp-tl);
+ document.getElementById('todayDate').textContent=new Date().toLocaleDateString('ar-EG',{day:'numeric',month:'short'});
+ document.getElementById('chartTotal').textContent=money(gross)+' صافي';
+ document.getElementById('repGross').textContent=money(gross);document.getElementById('repLoss').textContent=money(loss);document.getElementById('repExpenses').textContent=money(expenses);document.getElementById('repNet').textContent=money(gross-expenses);
+ const days=[...Array(7)].map((_,i)=>{let d=new Date();d.setDate(d.getDate()-(6-i));return d.toISOString().slice(0,10)});const vals=days.map(day=>data.shipments.filter(x=>x.date===day).reduce((s,x)=>s+x.sale-x.cost,0));const max=Math.max(1,...vals.map(Math.abs));
+ document.getElementById('bars').innerHTML=vals.map((v,i)=>`<div class="bar-col"><b style="font-size:10px">${v?money(Math.abs(v)).replace(' ج.م',''):''}</b><div class="bar" title="${money(v)}" style="height:${Math.max(5,Math.abs(v)/max*72)}%"></div><small>${new Date(days[i]).toLocaleDateString('ar-EG',{weekday:'short'})}</small></div>`).join('');
+ document.getElementById('recentRows').innerHTML=data.shipments.slice(0,6).map(x=>{let n=x.sale-x.cost;return `<tr><td>${x.date}</td><td>${x.customer}</td><td>${x.service}</td><td>${money(x.sale)}</td><td>${money(x.cost)}</td><td class="${n>=0?'green':'red'}">${n>=0?'+':'−'}${money(Math.abs(n))}</td></tr>`}).join('')||`<tr><td colspan="6" class="empty">لا توجد عمليات</td></tr>`;
+ renderShipments();renderDebts();renderExpenses();renderAccounts();renderPaybt();
+ if(window.lucide) lucide.createIcons();
+}
+
+if(window.lucide) lucide.createIcons();
+</script>
+</body>
+</html>

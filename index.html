@@ -107,7 +107,7 @@ i[data-lucide]{width:19px;height:19px;stroke-width:2;vertical-align:middle}
     <div class="login-logo">M</div>
     <h1>MOHAB STORE</h1>
     <p>نظام إدارة الأرباح والشحن والديون<br>النسخة الرسمية</p>
-    <button id="googleLoginBtn" type="button" class="btn primary google" onclick="loginWithGoogle()"><i data-lucide="log-in"></i> <span id="googleLoginText">تسجيل الدخول بحساب Google</span></button>
+    <button class="btn primary google" onclick="loginWithGoogle()"><i data-lucide="log-in"></i> تسجيل الدخول بحساب Google</button>
     <div class="notice">الحساب المسموح به: mohabtop1p@gmail.com</div>
   </div>
 </div>
@@ -272,139 +272,53 @@ let docRef = db.collection('appData').doc('mainStore');
 
 // حالة البيانات الأساسية
 let data = { shipments: [], debts: [], expenses: [], accounts: [], paybt: { balance: 0, deposits: 0, logs: [] } };
-let dataLoaded = false;
-let saveQueue = Promise.resolve();
-let dataLoadFailed = false;
 
-// إظهار سبب الخطأ بشكل مفهوم بدلاً من رسالة عامة
-function friendlyFirebaseError(error, action) {
-  const code = error && error.code ? error.code : '';
-  console.error(`Firebase ${action}:`, error);
-  if (code.includes('permission-denied') || code.includes('unauthorized')) {
-    return 'تم رفض الوصول إلى قاعدة البيانات. راجع Firestore Security Rules وصلاحيات الحساب.';
-  }
-  if (code.includes('unavailable') || code.includes('deadline-exceeded')) {
-    return 'خدمة قاعدة البيانات غير متاحة حالياً. تحقق من الإنترنت وحاول مرة أخرى.';
-  }
-  if (code.includes('failed-precondition')) {
-    return 'إعدادات قاعدة البيانات تحتاج إلى مراجعة من Firebase Console.';
-  }
-  if (code.includes(' unauthenticated') || code.includes('unauthenticated')) {
-    return 'انتهت جلسة تسجيل الدخول. سجّل الدخول مرة أخرى.';
-  }
-  if (code.includes('network')) {
-    return 'تعذر الاتصال بالإنترنت أو بخوادم Firebase.';
-  }
-  return `تعذر ${action}. رمز الخطأ: ${code || 'غير معروف'}. افتح وحدة التحكم لمعرفة التفاصيل.`;
-}
-
-// تحميل البيانات: لا ننشئ مستنداً فارغاً تلقائياً إذا لم نجده؛ حتى لا نغطي على مشكلة المسار/المستند.
+// دالة جلب البيانات من السيرفر
 async function loadData() {
-  dataLoaded = false;
-  dataLoadFailed = false;
   try {
-    const doc = await docRef.get({ source: 'server' });
-    if (!doc.exists) {
-      dataLoadFailed = true;
-      showToast('لم يتم العثور على مستند البيانات appData/mainStore. لم يتم إنشاء بيانات فارغة حفاظاً على سجلاتك.');
-      console.error('Firestore document missing:', 'appData/mainStore', 'project:', firebaseConfig.projectId);
-      return;
-    }
-
-    const saved = doc.data() || {};
-    data = {
-      ...saved,
-      shipments: Array.isArray(saved.shipments) ? saved.shipments : [],
-      debts: Array.isArray(saved.debts) ? saved.debts : [],
-      expenses: Array.isArray(saved.expenses) ? saved.expenses : [],
-      accounts: Array.isArray(saved.accounts) ? saved.accounts : [],
-      paybt: {
-        balance: Number(saved.paybt?.balance || 0),
-        deposits: Number(saved.paybt?.deposits || 0),
-        logs: Array.isArray(saved.paybt?.logs) ? saved.paybt.logs : []
-      }
-    };
-    data.shipments = data.shipments.map(x => ({ ...x, paybt: Number(x.paybt || 0) }));
-    dataLoaded = true;
-    refresh();
-    showToast('تم تحميل بياناتك من قاعدة البيانات بنجاح');
-  } catch (error) {
-    dataLoadFailed = true;
-    showToast(friendlyFirebaseError(error, 'تحميل البيانات'));
-  }
-}
-
-// تسجيل الدخول
-async function loginWithGoogle() {
-  const button = document.getElementById('googleLoginBtn');
-  const label = document.getElementById('googleLoginText');
-  const originalLabel = 'تسجيل الدخول بحساب Google';
-  try {
-    if (!window.firebase || !firebase.auth || typeof firebase.auth !== 'function') {
-      showToast('تعذر تحميل خدمة تسجيل الدخول من Google. تأكد من الإنترنت وافتح الملف من متصفح Chrome.');
-      console.error('Firebase Auth SDK is unavailable.');
-      return;
-    }
-    if (button) button.disabled = true;
-    if (label) label.textContent = 'جاري فتح تسجيل الدخول...';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    // Redirect is more reliable than popup on Android/mobile browsers and when popups are blocked.
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    if (isMobile) {
-      await firebase.auth().signInWithRedirect(provider);
-      return;
-    }
-    await firebase.auth().signInWithPopup(provider);
-  } catch (error) {
-    console.error('Google sign-in error:', error);
-    const code = (error && error.code) || '';
-    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        await firebase.auth().signInWithRedirect(provider);
-        return;
-      } catch (redirectError) {
-        console.error('Google redirect sign-in error:', redirectError);
-        showToast('لم يفتح تسجيل الدخول. افتح الموقع من Chrome وتأكد أن النطاق مضاف في Firebase.');
-      }
-    } else if (code === 'auth/unauthorized-domain') {
-      showToast('النطاق الحالي غير مضاف: Firebase Console ← Authentication ← Settings ← Authorized domains.');
-    } else if (code === 'auth/operation-not-allowed') {
-      showToast('تسجيل الدخول بجوجل غير مفعّل في Firebase: Authentication ← Sign-in method ← Google.');
+    const doc = await docRef.get();
+    if (doc.exists) {
+      data = doc.data();
+      data.shipments = data.shipments || [];
+      data.debts = data.debts || [];
+      data.expenses = data.expenses || [];
+      data.accounts = data.accounts || [];
+      data.paybt = data.paybt || {balance:0,deposits:0,logs:[]};
+      data.paybt.balance = Number(data.paybt.balance || 0);
+      data.paybt.deposits = Number(data.paybt.deposits || 0);
+      data.paybt.logs = data.paybt.logs || [];
+      data.shipments = data.shipments.map(x => ({...x, paybt:Number(x.paybt || 0)}));
     } else {
-      showToast('فشل تسجيل الدخول: ' + ((error && (error.message || error.code)) || 'خطأ غير معروف'));
+      await docRef.set(data);
     }
-  } finally {
-    if (button) button.disabled = false;
-    if (label) label.textContent = originalLabel;
+    refresh();
+  } catch (error) {
+    console.error("خطأ في جلب البيانات:", error);
+    showToast('حدث خطأ أثناء تحميل البيانات');
   }
 }
 
-// تسجيل الخروج
-function logout() {
-  firebase.auth().signOut().then(() => location.reload()).catch(error => {
+// دالة تسجيل الدخول
+function loginWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  firebase.auth().signInWithPopup(provider).catch(error => {
     console.error(error);
-    showToast('تعذر تسجيل الخروج حالياً');
+    showToast('تم إلغاء أو فشل تسجيل الدخول');
   });
 }
 
-// التحقق من نتيجة تسجيل الدخول بعد الرجوع من Google (خصوصاً على الهاتف)
-firebase.auth().getRedirectResult().catch(error => {
-  console.error('Google redirect result error:', error);
-  if (error && error.code) {
-    showToast(error.code === 'auth/unauthorized-domain'
-      ? 'النطاق الحالي غير مضاف إلى Authorized domains في Firebase.'
-      : 'تعذر إكمال تسجيل الدخول بجوجل: ' + error.code);
-  }
-});
+// دالة تسجيل الخروج
+function logout() {
+  firebase.auth().signOut().then(() => {
+    location.reload();
+  });
+}
 
 // مراقبة حالة تسجيل الدخول والمصادقة
 firebase.auth().onAuthStateChanged(user => {
   if (user) {
-    if ((user.email || '').toLowerCase() === ALLOWED_EMAIL.toLowerCase()) {
+    if (user.email === ALLOWED_EMAIL) {
       document.getElementById('login').classList.remove('show');
       showToast('مرحباً بك! جاري تحميل البيانات...');
       loadData();
@@ -414,23 +328,15 @@ firebase.auth().onAuthStateChanged(user => {
       document.getElementById('login').classList.add('show');
     }
   } else {
-    dataLoaded = false;
     document.getElementById('login').classList.add('show');
   }
 });
 
-// حفظ البيانات في Firebase مع تسلسل عمليات الحفظ لتقليل احتمال تداخل الكتابات.
-// لا يتم الحفظ قبل نجاح التحميل، ولا تتم الكتابة إذا تعذر تحميل المستند.
-function save() {
-  if (!dataLoaded || dataLoadFailed) {
-    showToast('لم يتم الحفظ لأن تحميل البيانات لم يكتمل؛ حفاظاً على بياناتك لم تتم الكتابة.');
-    return;
-  }
-  const snapshot = JSON.parse(JSON.stringify(data));
-  saveQueue = saveQueue.then(() => docRef.set(snapshot)).then(() => {
-    // الحفظ اكتمل
-  }).catch(error => {
-    showToast(friendlyFirebaseError(error, 'حفظ البيانات'));
+// حفظ البيانات في Firebase بدلاً من التخزين المحلي
+function save(){
+  docRef.set(data).catch(error => {
+    console.error("خطأ في حفظ البيانات:", error);
+    showToast('تعذر الحفظ في قاعدة البيانات');
   });
   refresh();
 }
